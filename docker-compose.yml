@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: praxio-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-praxio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-praxio_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-praxio}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-praxio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - praxio-network
+
+  # Redis for Scheduling and Queues
+  redis:
+    image: redis:7-alpine
+    container_name: praxio-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - praxio-network
+
+  # PraXio Bot Service
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: praxio-bot
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-praxio}:${POSTGRES_PASSWORD:-praxio_secret}@postgres:5432/${POSTGRES_DB:-praxio}
+      REDIS_URL: redis://redis:6379
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID}
+      TIMEZONE: ${TIMEZONE:-Asia/Kolkata}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - praxio-network
+    volumes:
+      - ./logs:/app/logs
+
+  # PraXio API Service (for future webhooks/external integrations)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: praxio-api
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-praxio}:${POSTGRES_PASSWORD:-praxio_secret}@postgres:5432/${POSTGRES_DB:-praxio}
+      REDIS_URL: redis://redis:6379
+      PORT: ${API_PORT:-3000}
+      API_KEY: ${API_KEY}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - praxio-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  praxio-network:
+    driver: bridge
