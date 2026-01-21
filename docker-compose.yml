@@ -13,7 +13,6 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-praxio}"]
       interval: 10s
@@ -47,7 +46,7 @@ services:
     container_name: praxio-bot
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-praxio}:${POSTGRES_PASSWORD:-praxio_secret}@postgres:5432/${POSTGRES_DB:-praxio}
+      DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
@@ -72,7 +71,7 @@ services:
     container_name: praxio-api
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-praxio}:${POSTGRES_PASSWORD:-praxio_secret}@postgres:5432/${POSTGRES_DB:-praxio}
+      DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379
       PORT: ${API_PORT:-3000}
       API_KEY: ${API_KEY}

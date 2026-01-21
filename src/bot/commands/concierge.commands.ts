@@ -37,7 +37,7 @@ export class ConciergeCommands {
         )
         .addStringOption((option) =>
           option.setName('question').setDescription('Your question').setRequired(true),
-        ),
+        ) as SlashCommandBuilder,
       new SlashCommandBuilder()
         .setName('knowledgebase')
         .setDescription('Access company documentation'),

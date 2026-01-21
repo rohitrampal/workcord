@@ -80,7 +80,7 @@ export class TaskCommands {
         )
         .addSubcommand((subcommand) =>
           subcommand.setName('teamlist').setDescription('View team tasks'),
-        ),
+        ) as SlashCommandBuilder,
     ];
   }
 

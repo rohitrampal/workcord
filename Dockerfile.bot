@@ -23,6 +23,9 @@ RUN npm run build
 # Production image
 FROM node:20-alpine
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl libc6-compat
+
 WORKDIR /app
 
 # Install production dependencies only
@@ -44,4 +47,4 @@ RUN addgroup -g 1001 -S nodejs && \
 USER nodejs
 
 # Start bot
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

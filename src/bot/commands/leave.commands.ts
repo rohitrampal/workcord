@@ -71,7 +71,7 @@ export class LeaveCommands {
             .addStringOption((option) =>
               option.setName('reason').setDescription('Rejection reason').setRequired(true),
             ),
-        ),
+        ) as SlashCommandBuilder,
     ];
   }
 

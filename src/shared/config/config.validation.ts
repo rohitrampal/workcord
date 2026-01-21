@@ -8,11 +8,13 @@ enum Environment {
 }
 
 class EnvironmentVariables {
+  @IsOptional()
   @IsString()
-  DISCORD_BOT_TOKEN: string;
+  DISCORD_BOT_TOKEN?: string;
 
+  @IsOptional()
   @IsString()
-  DISCORD_CLIENT_ID: string;
+  DISCORD_CLIENT_ID?: string;
 
   @IsOptional()
   @IsString()

@@ -38,7 +38,7 @@ export class AttendanceCommands {
               { name: 'Outdoor', value: 'Outdoor' },
               { name: 'Site Visit', value: 'Site Visit' },
             ),
-        ),
+        ) as SlashCommandBuilder,
       new SlashCommandBuilder()
         .setName('checkout')
         .setDescription('Check out for the day'),
