@@ -37,6 +37,8 @@ model Guild {
   leaves            Leave[]
   auditLogs         AuditLog[]
   conciergeChannels ConciergeChannel[]
+  hrTickets         HrTicket[]
+  knowledgeArticles KnowledgeArticle[]
 
   @@index([isProvisioned])
   @@map("guilds")
@@ -90,6 +92,7 @@ model User {
   email         String?
   phone         String?
   roleId        String?
+  penaltyPoints Int      @default(0)
   joinedAt      DateTime @default(now())
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -105,6 +108,7 @@ model User {
   leaves        Leave[]
   auditLogs     AuditLog[]
   conciergeChannel ConciergeChannel?
+  hrTickets     HrTicket[]
 
   @@unique([guildId, id])
   @@index([guildId, roleId])
@@ -293,4 +297,53 @@ model ConciergeChannel {
   @@index([guildId, userId])
   @@index([channelId])
   @@map("concierge_channels")
+}
+
+// HR Help Desk Tickets
+model HrTicket {
+  id            String   @id @default(uuid())
+  guildId       String
+  userId        String
+  ticketId      String   @unique @default(uuid()) // User-facing ticket ID
+  category      String   // Leave, Attendance, Payroll, General
+  question      String   @db.Text
+  status        String   @default("Open") // Open, In Progress, Resolved, Closed
+  assignedTo    String?  // Admin user ID
+  response      String?  @db.Text
+  respondedBy   String?
+  respondedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  guild         Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, status])
+  @@index([guildId, userId])
+  @@index([ticketId])
+  @@map("hr_tickets")
+}
+
+// Knowledge Base Articles
+model KnowledgeArticle {
+  id          String   @id @default(uuid())
+  guildId     String
+  title       String
+  content     String   @db.Text
+  category    String   // Policies, Procedures, FAQs
+  tags        String[] // Array of tags for search
+  helpful     Int      @default(0) // Count of helpful votes
+  notHelpful  Int      @default(0) // Count of not helpful votes
+  views       Int      @default(0)
+  createdBy   String
+  updatedBy   String?
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, category])
+  @@index([guildId, isPublished])
+  @@map("knowledge_articles")
 }

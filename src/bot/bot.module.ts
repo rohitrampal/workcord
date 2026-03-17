@@ -8,6 +8,9 @@ import { TasksModule } from '@domain/tasks/tasks.module';
 import { ConciergeModule } from '@domain/concierge/concierge.module';
 import { AuditModule } from '@domain/audit/audit.module';
 import { SchedulingModule } from '@domain/scheduling/scheduling.module';
+import { ReportingModule } from '@domain/reporting/reporting.module';
+import { WfmModule } from '@domain/wfm/wfm.module';
+import { PlannerModule } from '@domain/planner/planner.module';
 import { ConfigModule } from '@shared/config/config.module';
 
 /**
@@ -25,6 +28,9 @@ import { ConfigModule } from '@shared/config/config.module';
     ConciergeModule,
     AuditModule,
     SchedulingModule,
+    ReportingModule,
+    WfmModule,
+    PlannerModule,
   ],
   providers: [BotService],
 })

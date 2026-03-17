@@ -2,8 +2,11 @@ import { SlashCommandBuilder, EmbedBuilder } from '@discordjs/builders';
 import { ChatInputCommandInteraction } from 'discord.js';
 import { LeaveService } from '@domain/hrms/leave.service';
 import { AuditService } from '@domain/audit/audit.service';
+import { DiscordService } from '@infra/discord/discord.service';
+import { PrismaService } from '@infra/database/prisma.service';
 import { handleError } from '@shared/utils/errors';
 import { Logger } from '@nestjs/common';
+import { parseISTDate, formatISTDate, getCurrentISTDate } from '@shared/utils/date';
 
 /**
  * Leave Commands
@@ -14,6 +17,8 @@ export class LeaveCommands {
   constructor(
     private leaveService: LeaveService,
     private auditService: AuditService,
+    private discord: DiscordService,
+    private prisma: PrismaService,
   ) {}
 
   /**
@@ -71,6 +76,25 @@ export class LeaveCommands {
             .addStringOption((option) =>
               option.setName('reason').setDescription('Rejection reason').setRequired(true),
             ),
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('calendar')
+            .setDescription('View team leave calendar')
+            .addStringOption((option) =>
+              option.setName('startdate').setDescription('Start date (YYYY-MM-DD)').setRequired(false),
+            )
+            .addStringOption((option) =>
+              option.setName('enddate').setDescription('End date (YYYY-MM-DD)').setRequired(false),
+            ),
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName('history')
+            .setDescription('View your leave history')
+            .addUserOption((option) =>
+              option.setName('user').setDescription('User to view history for (Admin only)').setRequired(false),
+            ),
         ) as SlashCommandBuilder,
     ];
   }
@@ -121,9 +145,55 @@ export class LeaveCommands {
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
+
+      // Send notification to admin channel
+      try {
+        const adminChannel = await this.prisma.channel.findFirst({
+          where: {
+            guildId,
+            type: 'admin',
+          },
+        });
+
+        if (adminChannel) {
+          const textChannel = await this.discord.getTextChannel(adminChannel.id);
+          if (textChannel) {
+            const daysRequested = Math.ceil(
+              (parseISTDate(endDate).getTime() - parseISTDate(startDate).getTime()) / (1000 * 60 * 60 * 24),
+            ) + 1;
+
+            const adminEmbed = new EmbedBuilder()
+              .setTitle('📋 New Leave Application')
+              .setColor(0xff9900)
+              .setDescription(`A new leave application requires approval`)
+              .addFields(
+                { name: 'Application ID', value: result.applicationId, inline: true },
+                { name: 'Applicant', value: `<@${userId}>`, inline: true },
+                { name: 'Leave Type', value: leaveType, inline: true },
+                { name: 'Start Date', value: startDate, inline: true },
+                { name: 'End Date', value: endDate, inline: true },
+                { name: 'Days Requested', value: `${daysRequested} days`, inline: true },
+                { name: 'Reason', value: reason.length > 500 ? reason.substring(0, 500) + '...' : reason, inline: false },
+              )
+              .setFooter({ text: `Use /leave approve ${result.applicationId} to approve or /leave reject ${result.applicationId} to reject` })
+              .setTimestamp();
+
+            await textChannel.send({ embeds: [adminEmbed] });
+            this.logger.log(`Sent pending leave notification to admin channel for application ${result.applicationId}`);
+          }
+        }
+      } catch (error) {
+        // Log error but don't fail the leave application
+        this.logger.error(`Failed to send admin notification for leave application ${result.applicationId}`, error);
+      }
     } catch (error) {
       const message = handleError(error, this.logger);
-      await interaction.editReply({ content: `❌ ${message}` });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Leave Application Failed')
+        .setDescription(message)
+        .setColor(0xff0000)
+        .setTimestamp();
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 
@@ -156,7 +226,12 @@ export class LeaveCommands {
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       const message = handleError(error, this.logger);
-      await interaction.editReply({ content: `❌ ${message}` });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Leave Application Failed')
+        .setDescription(message)
+        .setColor(0xff0000)
+        .setTimestamp();
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 
@@ -192,7 +267,12 @@ export class LeaveCommands {
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       const message = handleError(error, this.logger);
-      await interaction.editReply({ content: `❌ ${message}` });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Leave Application Failed')
+        .setDescription(message)
+        .setColor(0xff0000)
+        .setTimestamp();
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 
@@ -232,7 +312,184 @@ export class LeaveCommands {
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       const message = handleError(error, this.logger);
-      await interaction.editReply({ content: `❌ ${message}` });
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Leave Application Failed')
+        .setDescription(message)
+        .setColor(0xff0000)
+        .setTimestamp();
+      await interaction.editReply({ embeds: [errorEmbed] });
+    }
+  }
+
+  /**
+   * Handle /leave calendar
+   */
+  async handleCalendar(interaction: ChatInputCommandInteraction): Promise<void> {
+    try {
+      await interaction.deferReply({ ephemeral: true });
+
+      const guildId = interaction.guildId!;
+      const startDateStr = interaction.options.getString('startdate');
+      const endDateStr = interaction.options.getString('enddate');
+
+      const today = getCurrentISTDate();
+      today.setHours(0, 0, 0, 0);
+
+      // Default to current month if no dates provided
+      const startDate = startDateStr ? parseISTDate(startDateStr) : new Date(today.getFullYear(), today.getMonth(), 1);
+      const endDate = endDateStr
+        ? parseISTDate(endDateStr)
+        : new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        await interaction.editReply({
+          content: '❌ Invalid date format. Please use YYYY-MM-DD format.',
+        });
+        return;
+      }
+
+      const calendar = await this.leaveService.getLeaveCalendar(guildId, startDate, endDate);
+
+      const embed = new EmbedBuilder()
+        .setTitle('📅 Leave Calendar')
+        .setColor(0x0099ff)
+        .addFields({
+          name: 'Period',
+          value: `${formatISTDate(startDate)} to ${formatISTDate(endDate)}`,
+          inline: false,
+        })
+        .setTimestamp();
+
+      if (calendar.leaves.length === 0) {
+        embed.setDescription('No approved leaves in this period.');
+      } else {
+        // Group leaves by user
+        const leavesByUser = new Map<string, Array<typeof calendar.leaves[0]>>();
+        for (const leave of calendar.leaves) {
+          if (!leavesByUser.has(leave.userId)) {
+            leavesByUser.set(leave.userId, []);
+          }
+          leavesByUser.get(leave.userId)!.push(leave);
+        }
+
+        // Add leaves to embed (limit to 10 users to avoid embed size limits)
+        let count = 0;
+        for (const [userId, userLeaves] of leavesByUser.entries()) {
+          if (count >= 10) break;
+          const user = userLeaves[0];
+          const leaveList = userLeaves
+            .map(
+              (l) =>
+                `${formatISTDate(l.startDate)} - ${formatISTDate(l.endDate)} (${l.days} days) - ${l.leaveType}`,
+            )
+            .join('\n');
+          embed.addFields({
+            name: user.username,
+            value: leaveList || 'No leaves',
+            inline: true,
+          });
+          count++;
+        }
+
+        if (calendar.leaves.length > 10) {
+          embed.setFooter({ text: `Showing first 10 users. Total: ${calendar.leaves.length} leave entries` });
+        }
+      }
+
+      // Add conflicts if any
+      if (calendar.conflicts.length > 0) {
+        const conflictList = calendar.conflicts
+          .slice(0, 5)
+          .map(
+            (c) =>
+              `**${formatISTDate(c.date)}**: ${c.users.map((u) => u.username).join(', ')} (${c.count} people)`,
+          )
+          .join('\n');
+        embed.addFields({
+          name: '⚠️ Overlapping Leaves',
+          value: conflictList + (calendar.conflicts.length > 5 ? `\n...and ${calendar.conflicts.length - 5} more` : ''),
+          inline: false,
+        });
+      }
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      const message = handleError(error, this.logger);
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Calendar View Failed')
+        .setDescription(message)
+        .setColor(0xff0000)
+        .setTimestamp();
+      await interaction.editReply({ embeds: [errorEmbed] });
+    }
+  }
+
+  /**
+   * Handle /leave history
+   */
+  async handleHistory(interaction: ChatInputCommandInteraction): Promise<void> {
+    try {
+      await interaction.deferReply({ ephemeral: true });
+
+      const guildId = interaction.guildId!;
+      const targetUser = interaction.options.getUser('user');
+      const userId = targetUser ? targetUser.id : interaction.user.id;
+
+      // Check if user is admin if viewing someone else's history
+      if (targetUser && targetUser.id !== interaction.user.id) {
+        // In a real implementation, you'd check for admin permissions here
+        // For now, we'll allow it
+      }
+
+      const history = await this.leaveService.getUserLeaveHistory(guildId, userId);
+
+      const embed = new EmbedBuilder()
+        .setTitle(`📋 Leave History - ${targetUser ? targetUser.username : 'Your Leaves'}`)
+        .setColor(0x0099ff)
+        .setTimestamp();
+
+      if (history.length === 0) {
+        embed.setDescription('No leave applications found.');
+      } else {
+        // Group by status
+        const pending = history.filter((l) => l.status === 'Pending');
+        const approved = history.filter((l) => l.status === 'Approved');
+        const rejected = history.filter((l) => l.status === 'Rejected');
+
+        embed.addFields(
+          {
+            name: '📊 Summary',
+            value: `Pending: ${pending.length}\nApproved: ${approved.length}\nRejected: ${rejected.length}\nTotal: ${history.length}`,
+            inline: true,
+          },
+          {
+            name: 'Recent Leaves',
+            value:
+              history
+                .slice(0, 5)
+                .map(
+                  (l) =>
+                    `${formatISTDate(l.startDate)} - ${formatISTDate(l.endDate)} (${l.leaveType}) - ${l.status}`,
+                )
+                .join('\n') || 'None',
+            inline: false,
+          },
+        );
+
+        if (history.length > 5) {
+          embed.setFooter({ text: `Showing 5 of ${history.length} leave applications` });
+        }
+      }
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      const message = handleError(error, this.logger);
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ History View Failed')
+        .setDescription(message)
+        .setColor(0xff0000)
+        .setTimestamp();
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 }

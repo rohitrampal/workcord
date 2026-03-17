@@ -23,8 +23,9 @@ class EnvironmentVariables {
   @IsString()
   DATABASE_URL: string;
 
+  @IsOptional()
   @IsString()
-  REDIS_URL: string;
+  REDIS_URL?: string;
 
   @IsEnum(Environment)
   @IsOptional()

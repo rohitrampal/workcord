@@ -42,9 +42,16 @@ export function formatISTDate(date: Date): string {
 
 /**
  * Parse IST date string (YYYY-MM-DD) to Date
+ * Throws error if date is invalid
  */
 export function parseISTDate(dateString: string): Date {
   const parsed = parse(dateString, 'yyyy-MM-dd', new Date());
+  
+  // Check if the date is valid
+  if (isNaN(parsed.getTime())) {
+    throw new Error(`Invalid date format: ${dateString}. Expected format: YYYY-MM-DD`);
+  }
+  
   return zonedTimeToUtc(parsed, IST_TIMEZONE);
 }
 

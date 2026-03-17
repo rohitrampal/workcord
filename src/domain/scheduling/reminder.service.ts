@@ -3,8 +3,10 @@ import { PrismaService } from '@infra/database/prisma.service';
 import { DiscordService } from '@infra/discord/discord.service';
 import { TodoService } from '@domain/wfm/todo.service';
 import { UpdateService } from '@domain/wfm/update.service';
+import { AuditService } from '@domain/audit/audit.service';
 import { parseISTTime, getCurrentISTDate, formatISTDate } from '@shared/utils/date';
 import { EmbedBuilder } from '@discordjs/builders';
+import { PenaltyConfig } from '@shared/types';
 
 /**
  * Reminder Service
@@ -19,6 +21,7 @@ export class ReminderService {
     private discord: DiscordService,
     private todoService: TodoService,
     private updateService: UpdateService,
+    private auditService: AuditService,
   ) {}
 
   /**
@@ -152,12 +155,81 @@ export class ReminderService {
 
             await textChannel.send({ embeds: [embed] });
 
-            // Send DM to defaulters
+            // Send DM to defaulters and assign penalties
+            const guild = await this.prisma.guild.findUnique({
+              where: { id: guildId },
+            });
+
+            const penaltyConfig: PenaltyConfig = (guild?.penaltyConfig as unknown as PenaltyConfig) || {
+              todoDefault: 1,
+              eodDefault: 1,
+              attendanceDefault: 2,
+            };
+
+            const penaltyPoints = type === 'todo' ? penaltyConfig.todoDefault : penaltyConfig.eodDefault;
+
             for (const defaulterId of defaulters) {
+              // Send DM
               await this.discord.sendDM(
                 defaulterId,
                 `⚠️ Reminder: You haven't posted your ${type === 'todo' ? 'To-Do list' : 'EOD update'} today. Please do so as soon as possible.`,
               );
+
+              // Assign penalty
+              try {
+                const user = await this.prisma.user.findUnique({
+                  where: { guildId_id: { guildId, id: defaulterId } },
+                });
+
+                if (user) {
+                  const newPenaltyPoints = (user.penaltyPoints || 0) + penaltyPoints;
+
+                  await this.prisma.user.update({
+                    where: { guildId_id: { guildId, id: defaulterId } },
+                    data: { penaltyPoints: newPenaltyPoints },
+                  });
+
+                  // Log penalty assignment
+                  await this.auditService.logAction(
+                    guildId,
+                    'system',
+                    'penalty_assign',
+                    'user',
+                    defaulterId,
+                    {
+                      type,
+                      points: penaltyPoints,
+                      totalPoints: newPenaltyPoints,
+                      channelId: channel.id,
+                      date: dateStr,
+                    },
+                  );
+
+                  // Check for threshold warnings (5, 10, 15 points)
+                  if (newPenaltyPoints >= 5 && newPenaltyPoints < 10) {
+                    await this.discord.sendDM(
+                      defaulterId,
+                      `⚠️ Warning: You have accumulated ${newPenaltyPoints} penalty points. Please ensure compliance with WFM requirements.`,
+                    );
+                  } else if (newPenaltyPoints >= 10 && newPenaltyPoints < 15) {
+                    await this.discord.sendDM(
+                      defaulterId,
+                      `🔴 Critical Warning: You have accumulated ${newPenaltyPoints} penalty points. Immediate action required.`,
+                    );
+                  } else if (newPenaltyPoints >= 15) {
+                    await this.discord.sendDM(
+                      defaulterId,
+                      `🚨 Escalation: You have accumulated ${newPenaltyPoints} penalty points. Please contact your manager immediately.`,
+                    );
+                  }
+
+                  this.logger.log(
+                    `Assigned ${penaltyPoints} penalty points to user ${defaulterId} (total: ${newPenaltyPoints})`,
+                  );
+                }
+              } catch (penaltyError) {
+                this.logger.error(`Failed to assign penalty to user ${defaulterId}`, penaltyError);
+              }
             }
           }
         }

@@ -95,7 +95,15 @@ export class AttendanceCommands {
       }
     } catch (error) {
       const message = handleError(error, this.logger);
-      await interaction.editReply({ content: `❌ ${message}` });
+      
+      // Create error embed for better UX
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Check-In Failed')
+        .setColor(0xff0000)
+        .setDescription(message)
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 
@@ -135,7 +143,15 @@ export class AttendanceCommands {
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       const message = handleError(error, this.logger);
-      await interaction.editReply({ content: `❌ ${message}` });
+      
+      // Create error embed for better UX
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Check-Out Failed')
+        .setColor(0xff0000)
+        .setDescription(message)
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [errorEmbed] });
     }
   }
 }

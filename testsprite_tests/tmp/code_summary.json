@@ -1,0 +1,263 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "NestJS",
+    "PostgreSQL",
+    "Prisma ORM",
+    "Discord.js",
+    "Redis",
+    "Express",
+    "Jest"
+  ],
+  "features": [
+    {
+      "name": "Attendance API",
+      "description": "REST API endpoints for attendance data retrieval with filtering capabilities",
+      "files": [
+        "src/api/controllers/attendance.controller.ts",
+        "src/api/guards/api-key.guard.ts"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Attendance API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/api/attendance": {
+            "get": {
+              "summary": "Get attendance records",
+              "parameters": [
+                {
+                  "name": "guildId",
+                  "in": "query",
+                  "schema": { "type": "string" }
+                },
+                {
+                  "name": "userId",
+                  "in": "query",
+                  "schema": { "type": "string" }
+                },
+                {
+                  "name": "startDate",
+                  "in": "query",
+                  "schema": { "type": "string", "format": "date" }
+                },
+                {
+                  "name": "endDate",
+                  "in": "query",
+                  "schema": { "type": "string", "format": "date" }
+                }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": {
+                  "description": "Success",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "success": { "type": "boolean" },
+                          "data": { "type": "array" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          },
+          "/api/attendance/{id}": {
+            "get": {
+              "summary": "Get attendance record by ID",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string" }
+                }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": { "description": "Success" },
+                "404": { "description": "Not Found" },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          }
+        },
+        "components": {
+          "securitySchemes": {
+            "ApiKeyAuth": {
+              "type": "apiKey",
+              "in": "header",
+              "name": "x-api-key"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Leaves API",
+      "description": "REST API endpoints for leave data retrieval with status and date filtering",
+      "files": [
+        "src/api/controllers/leaves.controller.ts",
+        "src/api/guards/api-key.guard.ts"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/leaves": {
+            "get": {
+              "summary": "Get leave records",
+              "parameters": [
+                { "name": "guildId", "in": "query", "schema": { "type": "string" } },
+                { "name": "userId", "in": "query", "schema": { "type": "string" } },
+                { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] } },
+                { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+                { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" } }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": { "description": "Success" },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          },
+          "/api/leaves/{id}": {
+            "get": {
+              "summary": "Get leave record by ID",
+              "parameters": [
+                { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": { "description": "Success" },
+                "404": { "description": "Not Found" },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Tasks API",
+      "description": "REST API endpoints for task data retrieval with status, assignee, and overdue filtering",
+      "files": [
+        "src/api/controllers/tasks.controller.ts",
+        "src/api/guards/api-key.guard.ts"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/tasks": {
+            "get": {
+              "summary": "Get task records",
+              "parameters": [
+                { "name": "guildId", "in": "query", "schema": { "type": "string" } },
+                { "name": "assigneeId", "in": "query", "schema": { "type": "string" } },
+                { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["Not Started", "In Progress", "Blocked", "Completed", "Cancelled"] } },
+                { "name": "priority", "in": "query", "schema": { "type": "string", "enum": ["Low", "Normal", "High", "Critical"] } },
+                { "name": "overdue", "in": "query", "schema": { "type": "boolean" } }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": { "description": "Success" },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          },
+          "/api/tasks/{id}": {
+            "get": {
+              "summary": "Get task record by ID",
+              "parameters": [
+                { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": { "description": "Success" },
+                "404": { "description": "Not Found" },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Users API",
+      "description": "REST API endpoints for user data retrieval with filtering",
+      "files": [
+        "src/api/controllers/users.controller.ts",
+        "src/api/guards/api-key.guard.ts"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/users": {
+            "get": {
+              "summary": "Get user records",
+              "parameters": [
+                { "name": "guildId", "in": "query", "schema": { "type": "string" } },
+                { "name": "isActive", "in": "query", "schema": { "type": "boolean" } }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": { "description": "Success" },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          },
+          "/api/users/{guildId}/{id}": {
+            "get": {
+              "summary": "Get user record by ID",
+              "parameters": [
+                { "name": "guildId", "in": "path", "required": true, "schema": { "type": "string" } },
+                { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+              ],
+              "security": [{ "ApiKeyAuth": [] }],
+              "responses": {
+                "200": { "description": "Success" },
+                "404": { "description": "Not Found" },
+                "401": { "description": "Unauthorized" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Health Check",
+      "description": "Public health check endpoint for API status",
+      "files": [
+        "src/api/main.ts"
+      ],
+      "api_doc": {
+        "paths": {
+          "/health": {
+            "get": {
+              "summary": "Health check endpoint",
+              "responses": {
+                "200": {
+                  "description": "Service is healthy",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "status": { "type": "string" },
+                          "timestamp": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

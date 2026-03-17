@@ -17,37 +17,45 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:api": "jest --testPathPattern=api --runInBand",
+    "test:services": "jest --testPathPattern=services",
+    "test:database": "jest --testPathPattern=database",
+    "test:commands": "jest --testPathPattern=commands",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@nestjs/bull": "^10.0.1",
     "@nestjs/common": "^10.3.0",
+    "@nestjs/config": "^3.1.1",
     "@nestjs/core": "^10.3.0",
     "@nestjs/platform-express": "^10.3.0",
-    "@nestjs/config": "^3.1.1",
     "@nestjs/schedule": "^4.0.0",
-    "@nestjs/bull": "^10.0.1",
+    "@nestjs/swagger": "^7.1.17",
     "@prisma/client": "^5.7.1",
-    "discord.js": "^14.14.1",
-    "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.8.1",
-    "zod": "^3.22.4",
-    "class-validator": "^0.14.0",
-    "class-transformer": "^0.5.1",
     "bull": "^4.12.0",
-    "ioredis": "^5.3.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "csv-stringify": "^6.4.4",
     "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",
-    "csv-stringify": "^6.4.4"
+    "discord.js": "^14.14.1",
+    "ioredis": "^5.3.2",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.2.1",
     "@nestjs/schematics": "^10.0.3",
     "@nestjs/testing": "^10.3.0",
-    "@types/node": "^20.10.6",
     "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.6",
+    "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^6.17.0",
     "@typescript-eslint/parser": "^6.17.0",
     "eslint": "^8.56.0",
@@ -70,15 +78,29 @@
       "json",
       "ts"
     ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "rootDir": ".",
+    "testMatch": [
+      "**/test/**/*.spec.ts",
+      "**/src/**/*.spec.ts"
+    ],
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@domain/(.*)$": "<rootDir>/src/domain/$1",
+      "^@infra/(.*)$": "<rootDir>/src/infra/$1",
+      "^@shared/(.*)$": "<rootDir>/src/shared/$1",
+      "^@bot/(.*)$": "<rootDir>/src/bot/$1",
+      "^@api/(.*)$": "<rootDir>/src/api/$1"
+    },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "src/**/*.(t|j)s",
+      "!src/**/*.spec.ts",
+      "!src/**/*.interface.ts",
+      "!src/**/*.dto.ts"
     ],
-    "coverageDirectory": "../coverage",
+    "coverageDirectory": "coverage",
     "testEnvironment": "node"
   }
 }

@@ -1,0 +1,17 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testMatch": ["<rootDir>/e2e/**/*.spec.ts"],
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/../src/$1",
+    "^@domain/(.*)$": "<rootDir>/../src/domain/$1",
+    "^@infra/(.*)$": "<rootDir>/../src/infra/$1",
+    "^@shared/(.*)$": "<rootDir>/../src/shared/$1",
+    "^@bot/(.*)$": "<rootDir>/../src/bot/$1",
+    "^@api/(.*)$": "<rootDir>/../src/api/$1"
+  }
+}
